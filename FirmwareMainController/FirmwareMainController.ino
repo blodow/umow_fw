@@ -1,3 +1,7 @@
+#include <Servo.h>
+
+#include <TimerOne.h>
+
 #include <DualVNH5019MotorShield.h>
 
 short RSSIdecode(unsigned char rssiEnc){
@@ -37,6 +41,8 @@ void ramp(DualVNH5019MotorShield& motors, int duration, int from, int to) {
 }
 
 DualVNH5019MotorShield motors;
+Servo mowingMotor;
+bool mowing;
 
 void setup() {
   // Serial1 is UART to RFBee
@@ -44,76 +50,50 @@ void setup() {
   // Serial is UART to Host PC
   Serial.begin(115200);
 
+  mowingMotor.attach(5);
+  mowing = false;
+  toggleMowing(mowing);
+  
   motors.init();
-  motors.setSpeeds(0, 0);
+  stopMotors();
+//  Timer1.initialize(150000);
+//  Timer1.attachInterrupt(stopMotors);
+//  Timer1.start();
 
   Serial.print("intialized.");
+}
+
+void stopMotors(void) {
+    motors.setSpeeds(0, 0);
+}
+
+void toggleMowing(bool enable) {
+  if (enable) {
+    mowingMotor.writeMicroseconds(1900);
+  } else {
+    mowingMotor.writeMicroseconds(1500);
+  }
 }
 
 #define println(x) Serial.println(x)
 #define print(x) Serial.print(x)
 
-void setDirectMotorFromJoy(short x, short y) {
-  int speedLeft = 0;
-  int speedRight = 0;
+void setDirectMotorFromJoy(int x, int y) {
+  const int maxVal = 200;
+  double diff = y/540.0;
+  double mean = x/540.0;
+  double l = (mean+diff) * 2 * maxVal;
+  double r = (mean-diff) * 2 * maxVal;
   
-  // go ahead or go back
-  if (y == 0) {
-    speedLeft  = x;
-    speedRight = speedLeft;
-    if (x >= 0) {
-      print("forward:       ");
-    } else {
-      print("goback:        ");
-    }
-  } else if (x == 0) {
-    speedLeft  = map(abs(y), 0, 100, 0, 50);
-    speedRight = speedLeft;
-    if (y > 0) {
-      print("right-rev:     ");
-      speedRight  = -speedRight;
-    } else {
-      print("left-rev:      ");
-      speedLeft  = -speedLeft;
-    }
-  } else if (x >= 0 && y <= 0 && abs(x) >= abs(y)) {
-    print("forward-left:  ");
-    speedLeft   = x + y;
-    speedRight  = x;
-  } else if (x >= 0 && y <= 0 && abs(x) < abs(y)) {
-    print("left-rev:      ");
-    speedLeft  = 100 - min(abs(x), abs(y));
-    speedLeft  = map(speedLeft, 0, 100, 0, 60);
-    speedRight = speedLeft;
-    speedLeft  = -speedLeft;
-  } else if (x >= 0 && y >= 0 && abs(x) >= abs(y)) {
-    print("forward-right: ");
-    speedLeft   = x;
-    speedRight  = x - y;
-  } else if (x >= 0 && y >= 0 && abs(x) < abs(y)) {
-    print("right-rev:     ");
-    speedLeft   = 100 - min(abs(x), abs(y));
-    speedLeft   = map(speedLeft, 0, 100, 0, 60);
-    speedRight  = speedLeft;
-    speedRight  = -speedRight;
-  } else if (x <= 0 && y <= 0 && abs(x) > abs(y)) {
-    print("back-left:     ");
-    speedRight = 0x80 + abs(x);
-    speedLeft  = 0x80 + abs(x) - abs(y);
-  } else if (x <= 0 && y >= 0 && abs(x) > abs(y)) {
-    print("back-right:    ");
-    speedLeft  = 0x80 + abs(x);
-    speedRight = 0x80 + abs(x) - abs(y);
-  } else {
-    return ;
-  }
-
-  print("left, right speed: ");
-  print(speedLeft);
+  print("mean, diff: ");
+  print(mean);
   print(", ");
-  println(speedRight);
-  
-  motors.setSpeeds(speedLeft, speedRight);
+  print(diff);
+  print("\tl, r: ");
+  print(l);
+  print(", ");
+  println(r);
+  motors.setSpeeds(constrain(l, -maxVal, maxVal), constrain(r, -maxVal, maxVal));
 }
 
 // count is the state index for the reading state machine
@@ -131,7 +111,18 @@ int lqi;
 int len;
 char incomingByte;
 
+bool lastMowingClickState = false;
+
 void loop() {
+  println("hello world");
+  delay(1000);
+  motors.setSpeeds(100, -100);
+  delay(1000);
+  motors.setSpeeds(-100, 100);
+  delay(1000);
+  motors.setSpeeds(0, 0);
+//  delay(/1000);
+//  motors.setSpeeds(100, -100);
   // send motor command only when we receive data:
   if (Serial1.available() > 0) {
     digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
@@ -172,17 +163,17 @@ void loop() {
       len--;
       yhi = incomingByte;
       
-      Serial.print("read: xhi, xlo, yhi, ylo: ");
-      Serial.print(xhi, HEX);
-      Serial.print(", ");
-      Serial.print(xlo, HEX);
-      Serial.print(", ");
-      Serial.print(yhi, HEX);
-      Serial.print(", ");
-      Serial.print(ylo, HEX);
-      Serial.print(" --> signal strength: ");
-      Serial.print(RSSIdecode(rssi));
-      Serial.println("dB");
+      print("read: xhi, xlo, yhi, ylo: ");
+      print(xhi);
+      print(", ");
+      print(xlo);
+      print(", ");
+      print(yhi);
+      print(", ");
+      print(ylo);
+      print(" --> signal strength: ");
+      print(RSSIdecode(rssi));
+      println("dB");
       
       count = 11;
     } else if (count == 11 && len > 0 && incomingByte == END1) {
@@ -190,7 +181,20 @@ void loop() {
     } else if (count == 12 && incomingByte == END2) {
       short x = xlo | (xhi << 8);
       short y = ylo | (yhi << 8);
-      setDirectMotorFromJoy(x, y);
+      println(x);
+      println(y);
+  
+      if (y > 510) {
+        if (!lastMowingClickState) {
+          lastMowingClickState = true;
+          mowing = !mowing;
+          toggleMowing(mowing);
+        }
+      } else {
+        lastMowingClickState = false;
+        setDirectMotorFromJoy(x, y);
+      }
+//      Timer1.restart();
       count = 0;
     } else {
       count = 0;
