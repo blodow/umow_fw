@@ -32,14 +32,14 @@ bool toggleLed_ = false;
 
 ////////////////////////////////////////////////////////////////////////////////
 // DISPLAY
-Adafruit_SSD1306 display = Adafruit_SSD1306();
+Adafruit_SSD1306 display_ = Adafruit_SSD1306();
 #if (SSD1306_LCDHEIGHT != 32)
- #error("Height incorrect, please fix Adafruit_SSD1306.h!");
+#error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
 // DRIVE MOTORS
-uMowMotorControl motors;
+uMowMotorControl motors_;
 int16_t lastMotor1_ = 0;
 int16_t lastMotor2_ = 0;
 int16_t targetMotor1_ = 0;
@@ -49,8 +49,8 @@ const int16_t maxDelta_ = 40;
 ////////////////////////////////////////////////////////////////////////////////
 // TRIM
 int8_t trim_ = 0;
-bool trimLeftButton = false;
-bool trimRightButton = false;
+bool trimLeftButton_ = false;
+bool trimRightButton_ = false;
 
 ////////////////////////////////////////////////////////////////////////////////
 // MOWING MOTOR
@@ -79,33 +79,33 @@ void off(int ms) {
 }
 
 void drawJoy(uint8_t x, uint8_t width, int8_t value) {
-  display.fillRect(x,0,width,32,0);
+  display_.fillRect(x, 0, width, 32, 0);
   if (value > 0) {
-    display.fillRect(x,16-value,width,value,1);
+    display_.fillRect(x, 16 - value, width, value, 1);
   } else {
-    display.fillRect(x,16,width,-value,1);
+    display_.fillRect(x, 16, width, -value, 1);
   }
 }
 
 void setDirectMotorFromJoy(int16_t x, int16_t y) {
   int16_t temp = x; x = -y; y = -temp;
   const uint16_t black = 0, white = 1;
-  
+
   const int maxVal = 250; // 512 would be 24V, but motors are rated for 12V !!
-  double diff = (-y)/540.0;
-  double mean = (-x)/540.0;
+  double diff = (-y) / 1024.0;
+  double mean = (-x) / 1024.0;
 
   {
     uint16_t drawX = -diff * 16;
     uint16_t drawY = -mean * 16;
-    display.fillRect(60,0,32,32,black);
-    display.drawFastVLine(76,0,32,white);
-    display.drawFastHLine(60,16,32,white);
-    display.drawLine(76,16,76+drawX,16+drawY, white);
+    display_.fillRect(60, 0, 32, 32, black);
+    display_.drawFastVLine(76, 0, 32, white);
+    display_.drawFastHLine(60, 16, 32, white);
+    display_.drawLine(76, 16, 76 + drawX, 16 + drawY, white);
   }
-    
-  double l = (mean+diff) * 2 * maxVal;
-  double r = (mean-diff) * 2 * maxVal;
+
+  double l = (mean + diff) * 2 * maxVal;
+  double r = (mean - diff) * 2 * maxVal;
 
   targetMotor1_ = constrain(l, -maxVal, maxVal);
   targetMotor2_ = constrain(r, -maxVal, maxVal);
@@ -120,18 +120,19 @@ void setDirectMotorFromJoy(int16_t x, int16_t y) {
   if (delta > maxDelta_) delta = maxDelta_;
   if (delta < -maxDelta_) delta = -maxDelta_;
   lastMotor1_ += delta;
-  
+
   delta = targetMotor2_ - lastMotor2_;
   if (delta > maxDelta_) delta = maxDelta_;
   if (delta < -maxDelta_) delta = -maxDelta_;
   lastMotor2_ += delta;
-  motors.setSpeeds(lastMotor1_, lastMotor2_);
 
-        display.fillRect(30,16,30,16,0);
-        display.setCursor(30,16);
-        display.print(lastMotor1_);
-        display.setCursor(30,24);
-        display.print(lastMotor2_);
+  motors_.setSpeeds(lastMotor1_, lastMotor2_);
+
+  display_.fillRect(30, 16, 30, 16, 0);
+  display_.setCursor(30, 16);
+  display_.print(lastMotor1_);
+  display_.setCursor(30, 24);
+  display_.print(lastMotor2_);
 
   drawJoy(122, 1, (l * 16.0) / maxVal);             // thin line: target speed
   drawJoy(123, 5, (lastMotor1_ * 16.0) / maxVal);   // thick line: actual, "smoother" speed
@@ -146,10 +147,10 @@ void emergencyStop() {
   lastMotor1_ = 0; // prevent ramping
   lastMotor2_ = 0; // prevent ramping
   setDirectMotorFromJoy(0, 0);
-  display.fillScreen(0);
-  display.setCursor(50, 12);
-  display.print("no radio");
-  display.display();
+  display_.fillScreen(0);
+  display_.setCursor(50, 12);
+  display_.print("no radio");
+  display_.display();
   // Beep
 }
 
@@ -194,7 +195,7 @@ void setup() {
   // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM
   if (!rf95.setFrequency(RF95_FREQ)) {
     Serial.println("setFrequency failed");
-    on(1000);off(1000);on(1000);
+    on(1000); off(1000); on(1000);
     while (1);
   }
   Serial.print("Set Freq to: "); Serial.println(RF95_FREQ);
@@ -207,14 +208,14 @@ void setup() {
   rf95.setTxPower(23, false);
 
   // setup display
-  display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 128x32)
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.fillScreen(0);
-  display.display(); // actually display all of the above
+  display_.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 128x32)
+  display_.setTextSize(1);
+  display_.setTextColor(WHITE);
+  display_.fillScreen(0);
+  display_.display(); // actually display all of the above
 
   // setup dual motor driver
-  motors.init();
+  motors_.init();
   // setup mowing motor as a simple servo
   mowingMotor_.attach(15); // A1
 }
@@ -232,21 +233,21 @@ void loop() {
       if (len == 10) {
         lastMillisJoy_ = now;
         uint8_t counter = buf[0];
-        
+
         // Handle joystick / drive motors
         int16_t joyX = buf[1] << 8 | buf[2];
         int16_t joyY = buf[3] << 8 | buf[4];
 
-        display.fillScreen(0);
-        display.setCursor(0,0);
-        display.println("joyX");
-        display.println("joyY");
-      
-        display.fillRect(30,0,30,16,0);
-        display.setCursor(30,0);
-        display.print(joyX);
-        display.setCursor(30,8);
-        display.print(joyY);
+        display_.fillRect(0, 0, 30, 16, 0);
+        display_.setCursor(0, 0);
+        display_.println("joyX");
+        display_.println("joyY");
+
+        display_.fillRect(30, 0, 30, 16, 0);
+        display_.setCursor(30, 0);
+        display_.print(joyX);
+        display_.setCursor(30, 8);
+        display_.print(joyY);
 
         setDirectMotorFromJoy(joyX, joyY);
 
@@ -256,42 +257,42 @@ void loop() {
           mowButton_ = true;
           mowing_ = !mowing_;
           toggleMowing(mowing_);
-          display.fillRect(0, 16, 30, 8, 0);
-          display.setCursor(0, 16);
-          display.print (mowing_ ? "M on" : "M off");
+          display_.fillRect(0, 16, 30, 8, 0);
+          display_.setCursor(0, 16);
+          display_.print (mowing_ ? "M on" : "M off");
         } else if (mowButton_ == true && !mowButtonMsg) {
           mowButton_ = false;
         }
 
         // Handle buttons / trim left
         bool trimLeftButtonMsg = buf[5] & 0x4;
-        if (trimLeftButton == false && trimLeftButtonMsg) {
-          trimLeftButton = true;
+        if (trimLeftButton_ == false && trimLeftButtonMsg) {
+          trimLeftButton_ = true;
           --trim_;
           //          analogWrite(A0, 1023); delay(500); analogWrite(A0, 0); delay(500);
-          display.fillRect(0, 24, 30, 8, 0);
-          display.setCursor(0, 24);
-          display.print ("T");
-          display.print (trim_);
-        } else if (trimLeftButton == true && !trimLeftButtonMsg) {
-          trimLeftButton = false;
+          display_.fillRect(0, 24, 30, 8, 0);
+          display_.setCursor(0, 24);
+          display_.print ("T");
+          display_.print (trim_);
+        } else if (trimLeftButton_ == true && !trimLeftButtonMsg) {
+          trimLeftButton_ = false;
         }
 
         // Handle buttons / trim right
         bool trimRightButtonMsg = buf[5] & 0x8;
-        if (trimRightButton == false && trimRightButtonMsg) {
-          trimRightButton = true;
+        if (trimRightButton_ == false && trimRightButtonMsg) {
+          trimRightButton_ = true;
           ++trim_;
           //          analogWrite(A0, 1023); delay(500); analogWrite(A0, 0); delay(500);
-          display.fillRect(0, 24, 30, 8, 0);
-          display.setCursor(0, 24);
-          display.print ("T");
-          display.print (trim_);
-        } else if (trimRightButton == true && !trimRightButtonMsg) {
-          trimRightButton = false;
+          display_.fillRect(0, 24, 30, 8, 0);
+          display_.setCursor(0, 24);
+          display_.print ("T");
+          display_.print (trim_);
+        } else if (trimRightButton_ == true && !trimRightButtonMsg) {
+          trimRightButton_ = false;
         }
 
-        display.display();
+        display_.display();
       }
       //Serial.println(rf95.lastRssi(), DEC);
       //// Send a reply
@@ -312,5 +313,3 @@ void loop() {
     emergencyStop();
   }
 }
-
-
