@@ -88,6 +88,7 @@ void drawJoy(uint8_t x, uint8_t width, int8_t value) {
 }
 
 void setDirectMotorFromJoy(int16_t x, int16_t y) {
+  int16_t temp = x; x = -y; y = -temp;
   const uint16_t black = 0, white = 1;
   
   const int maxVal = 250; // 512 would be 24V, but motors are rated for 12V !!
@@ -109,9 +110,9 @@ void setDirectMotorFromJoy(int16_t x, int16_t y) {
   targetMotor1_ = constrain(l, -maxVal, maxVal);
   targetMotor2_ = constrain(r, -maxVal, maxVal);
 
-  if (trim_ < 0) {
+  if (trim_ > 0) {
     targetMotor2_ *= (1.0 - 0.01 * abs(trim_));
-  } else if (trim_ > 0) {
+  } else if (trim_ < 0) {
     targetMotor1_ *= (1.0 - 0.01 * abs(trim_));
   }
 
