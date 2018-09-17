@@ -154,8 +154,9 @@ void emergencyStop() {
   lastMotor2_ = 0; // prevent ramping
   setDirectMotorFromJoy(0, 0);
   display_.fillScreen(0);
-  display_.setCursor(50, 12);
-  display_.print("no radio");
+  display_.setCursor(0, 96);
+  display_.print("no\nradio");
+  displayConnection();
   display_.display();
   // Beep
 }
@@ -192,7 +193,8 @@ void displayTrim() {
 }
 
 void displayConnection() {
-  display_.fillRect(0, 122, 32, 8, 0);
+  display_.fillRect(0, 112, 32, 8, 0);
+  display_.setCursor(0, 112);
   display_.println(rf95_.lastRssi(), DEC);
 }
 
@@ -319,5 +321,7 @@ void loop() {
 
   if (now - lastMillisJoy_ > deadManInterval_) {
     emergencyStop();
+  } else {
+    display_.fillRect(0, 96, 32, 16, 0);
   }
 }
