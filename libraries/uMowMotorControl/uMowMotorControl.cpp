@@ -50,7 +50,7 @@ void uMowMotorControl::setM1Speed(int speed)
     digitalWrite(_INA1,LOW);   // Make the motor coast no
     digitalWrite(_INB1,LOW);   // matter which direction it is spinning.
   }
-  else if (reverse)
+  else if (reverse == 1)
   {
     digitalWrite(_INA1,LOW);
     digitalWrite(_INB1,HIGH);
@@ -80,7 +80,7 @@ void uMowMotorControl::setM2Speed(int speed)
     digitalWrite(_INA2,LOW);   // Make the motor coast no
     digitalWrite(_INB2,LOW);   // matter which direction it is spinning.
   }
-  else if (reverse)
+  else if (reverse == 1)
   {
     digitalWrite(_INA2,LOW);
     digitalWrite(_INB2,HIGH);

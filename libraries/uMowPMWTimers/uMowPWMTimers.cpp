@@ -129,13 +129,13 @@ uMowPWMTimers::setDutyCycle(uint16_t c1, uint16_t c2) {
 
 void
 uMowPWMTimers::setDutyCycle1(uint16_t c) {
-  REG_TCC0_CCB1 = c;
+  REG_TCC0_CCB2 = c;
   while(TCC0->SYNCBUSY.bit.CCB1);
 }
 
 void
 uMowPWMTimers::setDutyCycle2(uint16_t c) {
-  REG_TCC0_CCB2 = c;
+  REG_TCC0_CCB1 = c;
   while(TCC0->SYNCBUSY.bit.CCB2);
 }
 
