@@ -198,6 +198,25 @@ void displayConnection() {
   display_.println(rf95_.lastRssi(), DEC);
 }
 
+void displayMowing() {
+  display_.fillRect(0, 120, 32, 8, 0);
+  display_.setCursor(0, 120);
+  int w = 32 - 6;
+  if (mowingSpeedLast_ == MOW_SPEED_ON) {
+    display_.print ("M");
+    display_.fillRect(6, 120, w, 8, WHITE);
+    display_.setTextColor(BLACK);
+    display_.print (mowing_ ? " on" : " 1!!");
+    display_.setTextColor(WHITE);
+  } else if (mowingSpeedLast_ == MOW_SPEED_OFF) {
+    display_.print (!mowing_ ? "M off" : "M 0!!");
+  } else {
+    display_.print ("M");
+    w *= (mowingSpeedLast_ - MOW_SPEED_OFF) / (float)(MOW_SPEED_ON - MOW_SPEED_OFF);
+    display_.fillRect(6, 120, w, 8, 1);
+  }
+}
+
 void setup() {
   pinMode(LED, OUTPUT);
   pinMode(RFM95_RST, OUTPUT);
@@ -275,9 +294,6 @@ void loop() {
           mowButton_ = true;
           mowing_ = !mowing_;
           toggleMowing(mowing_);
-          display_.fillRect(0, 120, 32, 8, 0);
-          display_.setCursor(0, 120);
-          display_.print (mowing_ ? "M on" : "M off");
         } else if (mowButton_ == true && !mowButtonMsg) {
           mowButton_ = false;
         }
@@ -299,10 +315,6 @@ void loop() {
         } else if (trimRightButton_ == true && !trimRightButtonMsg) {
           trimRightButton_ = false;
         }
-
-        displayTrim();
-        displayConnection();
-        display_.display();
       }
       //Serial.println(rf95_.lastRssi(), DEC);
       //// Send a reply
@@ -318,6 +330,10 @@ void loop() {
   }
 
   setMowingMotorSpeed();
+  displayTrim();
+  displayConnection();
+  displayMowing();
+  display_.display();
 
   if (now - lastMillisJoy_ > deadManInterval_) {
     emergencyStop();
