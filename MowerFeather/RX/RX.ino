@@ -269,7 +269,7 @@ void setup() {
 }
 
 void loop() {
-  unsigned long now = millis();
+  unsigned long now = millis() + deadManInterval_;
   if (rf95_.available()) {
     // Should be a message for us now
     uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
@@ -329,15 +329,14 @@ void loop() {
     digitalWrite(LED, toggleLed_);
   }
 
-  setMowingMotorSpeed();
-  displayTrim();
-  displayConnection();
-  displayMowing();
-  display_.display();
-
   if (now - lastMillisJoy_ > deadManInterval_) {
     emergencyStop();
   } else {
     display_.fillRect(0, 96, 32, 16, 0);
+    setMowingMotorSpeed();
+    displayTrim();
+    displayConnection();
+    displayMowing();
+    display_.display();
   }
 }
