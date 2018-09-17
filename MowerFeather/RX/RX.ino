@@ -54,9 +54,13 @@ bool trimRightButton = false;
 
 ////////////////////////////////////////////////////////////////////////////////
 // MOWING MOTOR
-Servo mowingMotor;
-bool mowing = false;
-bool mowButton = false;
+const int MOW_SPEED_ON = 1900;
+const int MOW_SPEED_OFF = 1500;
+Servo mowingMotor_;
+int mowingSpeedTarget_ = MOW_SPEED_OFF;
+int mowingSpeedLast_ = MOW_SPEED_OFF;
+bool mowing_ = false;
+bool mowButton_ = false;
 
 ////////////////////////////////////////////////////////////////////////////////
 // DEAD MAN SWITCH
@@ -137,23 +141,31 @@ void setDirectMotorFromJoy(int16_t x, int16_t y) {
 
 void emergencyStop() {
   toggleMowing(false);
+  mowingMotor_.writeMicroseconds(MOW_SPEED_OFF);
   lastMotor1_ = 0; // prevent ramping
   lastMotor2_ = 0; // prevent ramping
-  setDirectMotorFromJoy(0,0);
-    display.fillScreen(0);
-  display.setCursor(50,12);
+  setDirectMotorFromJoy(0, 0);
+  display.fillScreen(0);
+  display.setCursor(50, 12);
   display.print("no radio");
   display.display();
   // Beep
-//  analogWrite(A0, 1023); delay(500); analogWrite(A0, 0); delay(500); 
 }
 
 void toggleMowing(bool enable) {
   if (enable) {
-    mowingMotor.writeMicroseconds(1900);
+    mowingSpeedTarget_ = MOW_SPEED_ON;
   } else {
-    mowingMotor.writeMicroseconds(1500);
+    mowingSpeedTarget_ = MOW_SPEED_OFF;
   }
+}
+
+void setMowingMotorSpeed() {
+  int delta = mowingSpeedTarget_ - mowingSpeedLast_;
+  if (delta > maxDelta_) delta = maxDelta_;
+  if (delta < -maxDelta_) delta = -maxDelta_;
+  mowingSpeedLast_ += delta;
+  mowingMotor_.writeMicroseconds(mowingSpeedLast_);
 }
 
 void setup() {
@@ -203,7 +215,7 @@ void setup() {
   // setup dual motor driver
   motors.init();
   // setup mowing motor as a simple servo
-  mowingMotor.attach(15); // A1
+  mowingMotor_.attach(15); // A1
 }
 
 void loop() {
@@ -239,15 +251,17 @@ void loop() {
 
         // Handle buttons / mowing toggle
         bool mowButtonMsg = buf[5] & 0x2; // let's see
-        if (mowButton == false && mowButtonMsg) {
-          mowButton = true;
-          mowing = !mowing;
-          toggleMowing(mowing);
-          display.fillRect(0,16,40,8,0);
-          display.setCursor(0,16);
-          display.print (mowing?"mow on":"mow off");
-        } else if (mowButton == true && !mowButtonMsg) {
-          mowButton = false;
+        if (mowButton_ == false && mowButtonMsg) {
+          mowButton_ = true;
+          mowing_ = !mowing_;
+          toggleMowing(mowing_);
+          display.fillRect(0, 16, 30, 8, 0);
+          display.setCursor(0, 16);
+          display.print (mowing_ ? "M on" : "M off");
+        } else if (mowButton_ == true && !mowButtonMsg) {
+          mowButton_ = false;
+        }
+
         // Handle buttons / trim left
         bool trimLeftButtonMsg = buf[5] & 0x4;
         if (trimLeftButton == false && trimLeftButtonMsg) {
@@ -290,6 +304,9 @@ void loop() {
     toggleLed_ = !toggleLed_;
     digitalWrite(LED, toggleLed_);
   }
+
+  setMowingMotorSpeed();
+
   if (now - lastMillisJoy_ > deadManInterval_) {
     emergencyStop();
   }
