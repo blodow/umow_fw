@@ -47,6 +47,12 @@ int16_t targetMotor2_ = 0;
 const int16_t maxDelta_ = 40;
 
 ////////////////////////////////////////////////////////////////////////////////
+// TRIM
+int8_t trim_ = 0;
+bool trimLeftButton = false;
+bool trimRightButton = false;
+
+////////////////////////////////////////////////////////////////////////////////
 // MOWING MOTOR
 Servo mowingMotor;
 bool mowing = false;
@@ -98,6 +104,12 @@ void setDirectMotorFromJoy(int16_t x, int16_t y) {
 
   targetMotor1_ = constrain(l, -maxVal, maxVal);
   targetMotor2_ = constrain(r, -maxVal, maxVal);
+
+  if (trim_ < 0) {
+    targetMotor2_ *= (1.0 - 0.01 * abs(trim_));
+  } else if (trim_ > 0) {
+    targetMotor1_ *= (1.0 - 0.01 * abs(trim_));
+  }
 
   int16_t delta = targetMotor1_ - lastMotor1_;
   if (delta > maxDelta_) delta = maxDelta_;
@@ -236,6 +248,32 @@ void loop() {
           display.print (mowing?"mow on":"mow off");
         } else if (mowButton == true && !mowButtonMsg) {
           mowButton = false;
+        // Handle buttons / trim left
+        bool trimLeftButtonMsg = buf[5] & 0x4;
+        if (trimLeftButton == false && trimLeftButtonMsg) {
+          trimLeftButton = true;
+          --trim_;
+          //          analogWrite(A0, 1023); delay(500); analogWrite(A0, 0); delay(500);
+          display.fillRect(0, 24, 30, 8, 0);
+          display.setCursor(0, 24);
+          display.print ("T");
+          display.print (trim_);
+        } else if (trimLeftButton == true && !trimLeftButtonMsg) {
+          trimLeftButton = false;
+        }
+
+        // Handle buttons / trim right
+        bool trimRightButtonMsg = buf[5] & 0x8;
+        if (trimRightButton == false && trimRightButtonMsg) {
+          trimRightButton = true;
+          ++trim_;
+          //          analogWrite(A0, 1023); delay(500); analogWrite(A0, 0); delay(500);
+          display.fillRect(0, 24, 30, 8, 0);
+          display.setCursor(0, 24);
+          display.print ("T");
+          display.print (trim_);
+        } else if (trimRightButton == true && !trimRightButtonMsg) {
+          trimRightButton = false;
         }
 
         display.display();
