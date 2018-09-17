@@ -78,31 +78,29 @@ void off(int ms) {
   digitalWrite(LED, LOW); delay(ms);
 }
 
-void drawJoy(uint8_t x, uint8_t width, int8_t value) {
-  display_.fillRect(x, 0, width, 32, 0);
+void drawJoy(uint8_t x, uint8_t y, uint8_t width, int8_t value) {
+  display_.fillRect(x, y, width, 32, 0);
   if (value > 0) {
-    display_.fillRect(x, 16 - value, width, value, 1);
+    display_.fillRect(x, y + 16 - value, width, value, 1);
   } else {
-    display_.fillRect(x, 16, width, -value, 1);
+    display_.fillRect(x, y + 16, width, -value, 1);
   }
 }
 
 void setDirectMotorFromJoy(int16_t x, int16_t y) {
+  char buf[10];
+
+  display_.fillRect(0, 0, 32, 32, 0);
+  display_.setCursor(0, 0);
+  sprintf(buf, "x%4d", x); display_.println(buf);
+  sprintf(buf, "y%4d", y); display_.println(buf);
+
   int16_t temp = x; x = -y; y = -temp;
   const uint16_t black = 0, white = 1;
 
   const int maxVal = 250; // 512 would be 24V, but motors are rated for 12V !!
   double diff = (-y) / 1024.0;
   double mean = (-x) / 1024.0;
-
-  {
-    uint16_t drawX = -diff * 16;
-    uint16_t drawY = -mean * 16;
-    display_.fillRect(60, 0, 32, 32, black);
-    display_.drawFastVLine(76, 0, 32, white);
-    display_.drawFastHLine(60, 16, 32, white);
-    display_.drawLine(76, 16, 76 + drawX, 16 + drawY, white);
-  }
 
   double l = (mean + diff) * 2 * maxVal;
   double r = (mean - diff) * 2 * maxVal;
@@ -128,17 +126,25 @@ void setDirectMotorFromJoy(int16_t x, int16_t y) {
 
   motors_.setSpeeds(lastMotor1_, lastMotor2_);
 
-  display_.fillRect(30, 16, 30, 16, 0);
-  display_.setCursor(30, 16);
-  display_.print(lastMotor1_);
-  display_.setCursor(30, 24);
-  display_.print(lastMotor2_);
+  // print l, r  values
+  sprintf(buf, "l%4d", lastMotor1_); display_.println(buf);
+  sprintf(buf, "r%4d", lastMotor2_); display_.println(buf);
 
-  drawJoy(122, 1, (l * 16.0) / maxVal);             // thin line: target speed
-  drawJoy(123, 5, (lastMotor1_ * 16.0) / maxVal);   // thick line: actual, "smoother" speed
+  // draw direction indicator
+  {
+    uint16_t drawX = -diff * 16;
+    uint16_t drawY = -mean * 16;
+    display_.fillRect(0, 32, 32, 32, black);
+    // display_.drawFastVLine(16, 32, 32, white);
+    // display_.drawFastHLine(0, 48, 32, white);
+    display_.drawLine(16, 48, 16 - drawX, 48 + drawY, white);
+  }
 
-  drawJoy(112, 1, (r * 16.0) / maxVal);
-  drawJoy(113, 5, (lastMotor2_ * 16.0) / maxVal);
+  // draw speed "bar chart"
+  drawJoy(0, 32, 5, (lastMotor1_ * 16.0) / maxVal);   // thick line: actual, "smoother" speed
+  drawJoy(6, 32, 1, (targetMotor1_ * 16.0) / maxVal);             // thin line: target speed
+  drawJoy(25, 32, 1, (targetMotor2_ * 16.0) / maxVal);
+  drawJoy(27, 32, 5, (lastMotor2_ * 16.0) / maxVal);
 }
 
 void emergencyStop() {
@@ -168,6 +174,26 @@ void setMowingMotorSpeed() {
   if (delta < -maxDelta_) delta = -maxDelta_;
   mowingSpeedLast_ += delta;
   mowingMotor_.writeMicroseconds(mowingSpeedLast_);
+}
+
+void displayTrim() {
+  display_.fillRect(0, 64, 32, 8, 0);
+  display_.setCursor(1, 64);
+  if (trim_ == 0) {
+    display_.println("- T -");
+    return;
+  }
+  char buf[10];
+  if (trim_ < 0) {
+    sprintf(buf, "%-2dT", abs(trim_)); display_.println(buf);
+  } else if (trim_ > 0) {
+    sprintf(buf, "  T%2d", trim_); display_.println(buf);
+  }
+}
+
+void displayConnection() {
+  display_.fillRect(0, 122, 32, 8, 0);
+  display_.println(rf95_.lastRssi(), DEC);
 }
 
 void setup() {
@@ -209,6 +235,7 @@ void setup() {
 
   // setup display
   display_.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 128x32)
+  display_.setRotation(3);
   display_.setTextSize(1);
   display_.setTextColor(WHITE);
   display_.fillScreen(0);
@@ -238,17 +265,6 @@ void loop() {
         int16_t joyX = buf[1] << 8 | buf[2];
         int16_t joyY = buf[3] << 8 | buf[4];
 
-        display_.fillRect(0, 0, 30, 16, 0);
-        display_.setCursor(0, 0);
-        display_.println("joyX");
-        display_.println("joyY");
-
-        display_.fillRect(30, 0, 30, 16, 0);
-        display_.setCursor(30, 0);
-        display_.print(joyX);
-        display_.setCursor(30, 8);
-        display_.print(joyY);
-
         setDirectMotorFromJoy(joyX, joyY);
 
         // Handle buttons / mowing toggle
@@ -257,8 +273,8 @@ void loop() {
           mowButton_ = true;
           mowing_ = !mowing_;
           toggleMowing(mowing_);
-          display_.fillRect(0, 16, 30, 8, 0);
-          display_.setCursor(0, 16);
+          display_.fillRect(0, 120, 32, 8, 0);
+          display_.setCursor(0, 120);
           display_.print (mowing_ ? "M on" : "M off");
         } else if (mowButton_ == true && !mowButtonMsg) {
           mowButton_ = false;
@@ -269,11 +285,6 @@ void loop() {
         if (trimLeftButton_ == false && trimLeftButtonMsg) {
           trimLeftButton_ = true;
           --trim_;
-          //          analogWrite(A0, 1023); delay(500); analogWrite(A0, 0); delay(500);
-          display_.fillRect(0, 24, 30, 8, 0);
-          display_.setCursor(0, 24);
-          display_.print ("T");
-          display_.print (trim_);
         } else if (trimLeftButton_ == true && !trimLeftButtonMsg) {
           trimLeftButton_ = false;
         }
@@ -283,15 +294,12 @@ void loop() {
         if (trimRightButton_ == false && trimRightButtonMsg) {
           trimRightButton_ = true;
           ++trim_;
-          //          analogWrite(A0, 1023); delay(500); analogWrite(A0, 0); delay(500);
-          display_.fillRect(0, 24, 30, 8, 0);
-          display_.setCursor(0, 24);
-          display_.print ("T");
-          display_.print (trim_);
         } else if (trimRightButton_ == true && !trimRightButtonMsg) {
           trimRightButton_ = false;
         }
 
+        displayTrim();
+        displayConnection();
         display_.display();
       }
       //Serial.println(rf95_.lastRssi(), DEC);
