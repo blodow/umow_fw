@@ -9,7 +9,26 @@
 #include <SPI.h>
 #include <RH_RF95.h>
 
-#define LED 13
+// struct from FeatherJoyWing.h
+typedef struct {
+  uint8_t pinId;
+  bool pressed;
+  bool hasChanged;
+} FJBUTTON;
+
+#define BEEP         9
+#define LED         13
+#define PULSE1      10
+#define PULSE2      12
+
+#define BUT_SJOY    19
+#define BUT_S2       0
+#define BUT_S3      17
+#define BUT_S5      17
+#define BUT_TRIGGER 18
+
+#define JOY_X       14
+#define JOY_Y       15
 
 /* for feather m0  
 */
@@ -80,14 +99,14 @@ void joystickCallback(int16_t x, int16_t y)
   }
 }
 
-//void buttonCallback(FJBUTTON* buttons, uint8_t count)
-//{
-//  uint8_t but = 0x0;
-//  for(int i = 0; i < count; i++) {
-//    but |= (!!buttons[i].pressed) << i;
-//  }    
-//  buttons_ = but;
-//}
+void buttonCallback(FJBUTTON* buttons, uint8_t count)
+{
+  uint8_t but = 0x0;
+  for(int i = 0; i < count; i++) {
+    but |= (!!buttons[i].pressed) << i;
+  }    
+  buttons_ = but;
+}
 
 void on(int ms) {
   digitalWrite(LED, HIGH);
@@ -104,7 +123,23 @@ void setup()
   // This prevents the device from starting from battery (no USB)
   //while ( ! Serial ) { delay( 1 ); }
   //Serial.begin( 9600 );
-    
+
+  pinMode(BEEP, OUTPUT);
+  pinMode(LED, OUTPUT);
+  pinMode(PULSE1, OUTPUT);
+  pinMode(PULSE2, OUTPUT);
+  
+  pinMode(BUT_SJOY, INPUT_PULLUP);
+  pinMode(BUT_S2, INPUT_PULLUP);
+  pinMode(BUT_S3, INPUT_PULLUP);
+  pinMode(BUT_S5, INPUT_PULLUP);
+  pinMode(BUT_TRIGGER, INPUT_PULLUP);
+
+  pinMode(JOY_X, INPUT);
+  pinMode(JOY_Y, INPUT);
+  analogReference(AR_EXTERNAL);
+  
+     
   pinMode(RFM95_RST, OUTPUT);
   digitalWrite(RFM95_RST, HIGH);
 
@@ -196,11 +231,56 @@ void sendMessage() {
 //  }
 }
 
+void checkButton(int pin, FJBUTTON* buttons, int buttonIndex, const char* name) {
+  bool p = (digitalRead(pin) == LOW); 
+  buttons[buttonIndex].pinId = buttonIndex;
+  buttons[buttonIndex].pressed = p;
+  if (p) {
+    Serial.println(name);
+  }
+}
+
+void checkButtons() {
+  const static int buttonCount = 5;
+  static FJBUTTON buttons[buttonCount] = {0};
+  
+  digitalWrite(PULSE1, LOW);
+  delay(10);
+  // checkButton(BUT_S4, buttons, 5, "S4");
+  // checkButton(BUT_S6, buttons, 6, "S6");
+  checkButton(BUT_S5, buttons, 4, "S5");
+  checkButton(BUT_TRIGGER, buttons, 1, "TRIGGER");
+  digitalWrite(PULSE1, HIGH);
+  
+  digitalWrite(PULSE2, LOW);
+  delay(10);
+  checkButton(BUT_SJOY, buttons, 0, "JOY");
+  checkButton(BUT_S2, buttons, 2, "S2");
+  checkButton(BUT_S3, buttons, 3, "S3");
+  digitalWrite(PULSE2, HIGH);
+
+  buttonCallback(buttons, buttonCount);
+}
+
+void checkJoy() {
+  int16_t x = analogRead(JOY_X);
+  int16_t y = analogRead(JOY_Y);
+
+  Serial.print("x: ");
+  Serial.print(x - 512);
+  Serial.print("\ty: ");
+  Serial.println(y - 512);
+
+  joystickCallback(x - 512, y - 512);
+}
+
 void loop()
 {
 //  joy_.update();
   delay(10);
+
+  checkButtons();
+  checkJoy();
+
   sendMessage();
 }
-
-
