@@ -23,7 +23,7 @@
 // Change to 434.0 or other frequency, must match RX's freq!
 #define RF95_FREQ 434.0
 
-RH_RF95 rf95(RFM95_CS, RFM95_INT);
+RH_RF95 rf95_(RFM95_CS, RFM95_INT);
 
 ////////////////////////////////////////////////////////////////////////////////
 // LED
@@ -185,7 +185,7 @@ void setup() {
   digitalWrite(RFM95_RST, HIGH);
   delay(10);
 
-  while (!rf95.init()) {
+  while (!rf95_.init()) {
     Serial.println("LoRa radio init failed");
     on(1000);
     while (1);
@@ -193,7 +193,7 @@ void setup() {
   Serial.println("LoRa radio init OK!");
 
   // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM
-  if (!rf95.setFrequency(RF95_FREQ)) {
+  if (!rf95_.setFrequency(RF95_FREQ)) {
     Serial.println("setFrequency failed");
     on(1000); off(1000); on(1000);
     while (1);
@@ -205,7 +205,7 @@ void setup() {
   // The default transmitter power is 13dBm, using PA_BOOST.
   // If you are using RFM95/96/97/98 modules which uses the PA_BOOST transmitter pin, then
   // you can set transmitter powers from 5 to 23 dBm:
-  rf95.setTxPower(23, false);
+  rf95_.setTxPower(23, false);
 
   // setup display
   display_.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3C (for the 128x32)
@@ -222,14 +222,14 @@ void setup() {
 
 void loop() {
   unsigned long now = millis();
-  if (rf95.available()) {
+  if (rf95_.available()) {
     // Should be a message for us now
     uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
     uint8_t len = sizeof(buf);
 
     toggleLed_ = !toggleLed_;
     digitalWrite(LED, toggleLed_);
-    if (rf95.recv(buf, &len)) {
+    if (rf95_.recv(buf, &len)) {
       if (len == 10) {
         lastMillisJoy_ = now;
         uint8_t counter = buf[0];
@@ -294,11 +294,11 @@ void loop() {
 
         display_.display();
       }
-      //Serial.println(rf95.lastRssi(), DEC);
+      //Serial.println(rf95_.lastRssi(), DEC);
       //// Send a reply
       //uint8_t data[] = "And hello back to you";
-      //rf95.send(data, sizeof(data));
-      //rf95.waitPacketSent();
+      //rf95_.send(data, sizeof(data));
+      //rf95_.waitPacketSent();
       //Serial.println("Sent a reply");
     } else {
       Serial.println("Receive failed");
